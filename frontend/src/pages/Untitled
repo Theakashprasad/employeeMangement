@@ -1,0 +1,534 @@
+"use client";
+
+import { useState } from "react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
+import {
+  Briefcase,
+  Users,
+  TrendingUp,
+  Clock,
+  Bell,
+  Search,
+  ChevronDown,
+  ArrowUpRight,
+  ArrowDownRight,
+  Eye,
+  BookmarkCheck,
+  CheckCircle2,
+  XCircle,
+  LayoutDashboard,
+  FileText,
+  BarChart2,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  change: number;
+  icon: React.ReactNode;
+  color: string;
+}
+
+interface RecentJob {
+  id: number;
+  title: string;
+  company: string;
+  location: string;
+  status: "Applied" | "Interview" | "Rejected" | "Saved";
+  date: string;
+  logo: string;
+}
+
+interface Notification {
+  id: number;
+  message: string;
+  time: string;
+  read: boolean;
+}
+
+// ─── Mock Data ────────────────────────────────────────────────────────────────
+
+const applicationData = [
+  { month: "Jan", applied: 12, interviews: 3, offers: 1 },
+  { month: "Feb", applied: 19, interviews: 5, offers: 2 },
+  { month: "Mar", applied: 8, interviews: 2, offers: 0 },
+  { month: "Apr", applied: 24, interviews: 8, offers: 3 },
+  { month: "May", applied: 17, interviews: 6, offers: 2 },
+  { month: "Jun", applied: 30, interviews: 10, offers: 4 },
+];
+
+const recentJobs: RecentJob[] = [
+  {
+    id: 1,
+    title: "Senior Frontend Developer",
+    company: "Stripe",
+    location: "Remote",
+    status: "Interview",
+    date: "2 days ago",
+    logo: "S",
+  },
+  {
+    id: 2,
+    title: "Product Designer",
+    company: "Figma",
+    location: "San Francisco, CA",
+    status: "Applied",
+    date: "4 days ago",
+    logo: "F",
+  },
+  {
+    id: 3,
+    title: "Full Stack Engineer",
+    company: "Vercel",
+    location: "Remote",
+    status: "Saved",
+    date: "1 week ago",
+    logo: "V",
+  },
+  {
+    id: 4,
+    title: "UX Researcher",
+    company: "Notion",
+    location: "New York, NY",
+    status: "Rejected",
+    date: "1 week ago",
+    logo: "N",
+  },
+  {
+    id: 5,
+    title: "Backend Engineer",
+    company: "Linear",
+    location: "Remote",
+    status: "Applied",
+    date: "2 weeks ago",
+    logo: "L",
+  },
+];
+
+const notifications: Notification[] = [
+  { id: 1, message: "Stripe moved your application to Interview stage", time: "2h ago", read: false },
+  { id: 2, message: "New jobs matching 'Frontend Developer' are available", time: "5h ago", read: false },
+  { id: 3, message: "Your profile was viewed by Airbnb recruiter", time: "1d ago", read: true },
+];
+
+// ─── Status Config ────────────────────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<RecentJob["status"], { label: string; className: string; icon: React.ReactNode }> = {
+  Applied: {
+    label: "Applied",
+    className: "bg-blue-50 text-blue-600 border border-blue-100",
+    icon: <FileText size={11} />,
+  },
+  Interview: {
+    label: "Interview",
+    className: "bg-amber-50 text-amber-600 border border-amber-100",
+    icon: <Clock size={11} />,
+  },
+  Rejected: {
+    label: "Rejected",
+    className: "bg-red-50 text-red-500 border border-red-100",
+    icon: <XCircle size={11} />,
+  },
+  Saved: {
+    label: "Saved",
+    className: "bg-purple-50 text-purple-600 border border-purple-100",
+    icon: <BookmarkCheck size={11} />,
+  },
+};
+
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+
+function StatCard({ title, value, change, icon, color }: StatCardProps) {
+  const isPositive = change >= 0;
+  return (
+    <div className="bg-white border border-[#E7E7E7] rounded-xl p-5 flex flex-col gap-3 hover:shadow-sm transition-shadow">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-[#767F8C] uppercase tracking-wide">{title}</span>
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${color}`}>{icon}</div>
+      </div>
+      <div className="flex items-end justify-between">
+        <span className="text-2xl font-bold text-[#18191C]">{value}</span>
+        <span
+          className={`flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full ${
+            isPositive ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"
+          }`}
+        >
+          {isPositive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+          {Math.abs(change)}%
+        </span>
+      </div>
+      <p className="text-[11px] text-[#A0A7B4]">vs. last month</p>
+    </div>
+  );
+}
+
+// ─── Sidebar ─────────────────────────────────────────────────────────────────
+
+interface SidebarProps {
+  active: string;
+  onNavigate: (page: string) => void;
+  collapsed: boolean;
+}
+
+const NAV_ITEMS = [
+  { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+  { id: "applications", label: "Applications", icon: <FileText size={18} /> },
+  { id: "employee-chart", label: "Employee Chart", icon: <BarChart2 size={18} /> },
+  { id: "settings", label: "Settings", icon: <Settings size={18} /> },
+];
+
+function Sidebar({ active, onNavigate, collapsed }: SidebarProps) {
+  return (
+    <aside
+      className={`h-full bg-white border-r border-[#E7E7E7] flex flex-col transition-all duration-200 ${
+        collapsed ? "w-16" : "w-56"
+      }`}
+    >
+      {/* Logo */}
+      <div className={`flex items-center gap-2.5 px-4 py-5 border-b border-[#E7E7E7] ${collapsed ? "justify-center" : ""}`}>
+        <svg width="26" height="26" viewBox="0 0 32 32" fill="none" className="flex-shrink-0">
+          <circle cx="16" cy="16" r="16" fill="#0A65CC" />
+          <path
+            d="M10 16.5C10 13.46 12.46 11 15.5 11H22v2h-6.5C13.57 13 12 14.57 12 16.5S13.57 20 15.5 20H22v2h-6.5C12.46 22 10 19.54 10 16.5Z"
+            fill="white"
+          />
+          <circle cx="21" cy="16.5" r="2" fill="white" />
+        </svg>
+        {!collapsed && <span className="font-bold text-[15px] text-[#18191C] tracking-tight">JobPilot</span>}
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-2 py-4 flex flex-col gap-0.5">
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onNavigate(item.id)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              active === item.id
+                ? "bg-[#E8F1FB] text-[#0A65CC]"
+                : "text-[#474C54] hover:bg-[#F7F7F8] hover:text-[#18191C]"
+            } ${collapsed ? "justify-center" : ""}`}
+          >
+            <span className={active === item.id ? "text-[#0A65CC]" : "text-[#767F8C]"}>{item.icon}</span>
+            {!collapsed && item.label}
+          </button>
+        ))}
+      </nav>
+
+      {/* Logout */}
+      <div className="px-2 py-4 border-t border-[#E7E7E7]">
+        <button
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-[#474C54] hover:bg-red-50 hover:text-red-500 transition-all ${
+            collapsed ? "justify-center" : ""
+          }`}
+        >
+          <LogOut size={18} className="text-[#767F8C]" />
+          {!collapsed && "Log Out"}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+// ─── Topbar ───────────────────────────────────────────────────────────────────
+
+interface TopbarProps {
+  onToggleSidebar: () => void;
+  notifOpen: boolean;
+  onToggleNotif: () => void;
+  unread: number;
+}
+
+function Topbar({ onToggleSidebar, notifOpen, onToggleNotif, unread }: TopbarProps) {
+  return (
+    <header className="h-14 bg-white border-b border-[#E7E7E7] flex items-center px-5 gap-4 flex-shrink-0">
+      <button onClick={onToggleSidebar} className="text-[#767F8C] hover:text-[#18191C] transition-colors">
+        <Menu size={20} />
+      </button>
+
+      {/* Search */}
+      <div className="flex-1 max-w-sm relative">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A7B4]" />
+        <input
+          type="text"
+          placeholder="Search jobs, companies…"
+          className="w-full pl-9 pr-4 py-2 text-sm bg-[#F7F7F8] border border-[#E7E7E7] rounded-lg text-[#18191C] placeholder:text-[#A0A7B4] focus:outline-none focus:ring-2 focus:ring-[#0A65CC]/20 focus:border-[#0A65CC] transition-all"
+        />
+      </div>
+
+      <div className="ml-auto flex items-center gap-3">
+        {/* Notification bell */}
+        <div className="relative">
+          <button
+            onClick={onToggleNotif}
+            className="w-9 h-9 rounded-lg border border-[#E7E7E7] flex items-center justify-center text-[#767F8C] hover:text-[#18191C] hover:bg-[#F7F7F8] transition-all"
+          >
+            <Bell size={17} />
+            {unread > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E84545] text-white text-[10px] font-bold flex items-center justify-center">
+                {unread}
+              </span>
+            )}
+          </button>
+
+          {/* Notification Dropdown */}
+          {notifOpen && (
+            <div className="absolute right-0 top-11 w-80 bg-white border border-[#E7E7E7] rounded-xl shadow-lg z-50 overflow-hidden">
+              <div className="px-4 py-3 border-b border-[#E7E7E7] flex items-center justify-between">
+                <span className="text-sm font-semibold text-[#18191C]">Notifications</span>
+                <span className="text-xs text-[#0A65CC] font-medium cursor-pointer hover:underline">Mark all read</span>
+              </div>
+              {notifications.map((n) => (
+                <div
+                  key={n.id}
+                  className={`px-4 py-3 border-b border-[#F7F7F8] last:border-0 flex gap-3 ${
+                    !n.read ? "bg-[#F5F9FF]" : ""
+                  }`}
+                >
+                  {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-[#0A65CC] mt-1.5 flex-shrink-0" />}
+                  <div className={!n.read ? "" : "ml-3"}>
+                    <p className="text-xs text-[#18191C] leading-relaxed">{n.message}</p>
+                    <p className="text-[11px] text-[#A0A7B4] mt-0.5">{n.time}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Avatar */}
+        <div className="flex items-center gap-2 cursor-pointer group">
+          <div className="w-8 h-8 rounded-full bg-[#0A65CC] flex items-center justify-center text-white text-xs font-bold">
+            JD
+          </div>
+          <div className="hidden sm:block">
+            <p className="text-xs font-semibold text-[#18191C] leading-tight">John Doe</p>
+            <p className="text-[10px] text-[#A0A7B4]">Job Seeker</p>
+          </div>
+          <ChevronDown size={14} className="text-[#A0A7B4] group-hover:text-[#18191C] transition-colors" />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// ─── Custom Tooltip ───────────────────────────────────────────────────────────
+
+function CustomTooltip({ active, payload, label }: any) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-[#E7E7E7] rounded-lg px-3 py-2 shadow-md text-xs">
+        <p className="font-semibold text-[#18191C] mb-1">{label}</p>
+        {payload.map((entry: any) => (
+          <p key={entry.name} style={{ color: entry.color }} className="capitalize">
+            {entry.name}: <strong>{entry.value}</strong>
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return null;
+}
+
+// ─── Dashboard Page ───────────────────────────────────────────────────────────
+
+export default function Dashboard() {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activePage, setActivePage] = useState("dashboard");
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  return (
+    <div className="flex h-screen bg-[#F7F8FA] font-sans overflow-hidden">
+      <Sidebar
+        active={activePage}
+        onNavigate={(page) => { setActivePage(page); setNotifOpen(false); }}
+        collapsed={sidebarCollapsed}
+      />
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <Topbar
+          onToggleSidebar={() => setSidebarCollapsed((p) => !p)}
+          notifOpen={notifOpen}
+          onToggleNotif={() => setNotifOpen((p) => !p)}
+          unread={unreadCount}
+        />
+
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto px-6 py-6" onClick={() => setNotifOpen(false)}>
+          {/* Header */}
+          <div className="mb-6">
+            <h1 className="text-xl font-bold text-[#18191C]">Dashboard</h1>
+            <p className="text-sm text-[#767F8C] mt-0.5">Welcome back, John! Here's what's happening.</p>
+          </div>
+
+          {/* Stat Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <StatCard
+              title="Total Applied"
+              value="110"
+              change={12}
+              icon={<Briefcase size={18} className="text-[#0A65CC]" />}
+              color="bg-blue-50"
+            />
+            <StatCard
+              title="Interviews"
+              value="34"
+              change={8}
+              icon={<Users size={18} className="text-amber-500" />}
+              color="bg-amber-50"
+            />
+            <StatCard
+              title="Profile Views"
+              value="289"
+              change={-3}
+              icon={<Eye size={18} className="text-purple-500" />}
+              color="bg-purple-50"
+            />
+            <StatCard
+              title="Offers Received"
+              value="12"
+              change={20}
+              icon={<CheckCircle2 size={18} className="text-green-500" />}
+              color="bg-green-50"
+            />
+          </div>
+
+          {/* Chart + Recent Jobs */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            {/* Bar Chart */}
+            <div className="xl:col-span-2 bg-white border border-[#E7E7E7] rounded-xl p-5">
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h2 className="text-sm font-semibold text-[#18191C]">Application Activity</h2>
+                  <p className="text-xs text-[#A0A7B4] mt-0.5">Jan – Jun 2024</p>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-[#767F8C]">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-[#0A65CC]" /> Applied
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-[#F5A623]" /> Interviews
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-[#27AE60]" /> Offers
+                  </span>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={applicationData} barGap={4} barCategoryGap="30%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F0F0F0" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#A0A7B4" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "#A0A7B4" }} axisLine={false} tickLine={false} />
+                  <Tooltip content={<CustomTooltip />} cursor={{ fill: "#F7F8FA" }} />
+                  <Bar dataKey="applied" fill="#0A65CC" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="interviews" fill="#F5A623" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="offers" fill="#27AE60" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="flex flex-col gap-4">
+              <div className="bg-white border border-[#E7E7E7] rounded-xl p-5">
+                <h2 className="text-sm font-semibold text-[#18191C] mb-4">Application Status</h2>
+                {[
+                  { label: "Applied", count: 64, pct: 58, color: "#0A65CC" },
+                  { label: "Interview", count: 24, pct: 22, color: "#F5A623" },
+                  { label: "Offers", count: 12, pct: 11, color: "#27AE60" },
+                  { label: "Rejected", count: 10, pct: 9, color: "#E84545" },
+                ].map((s) => (
+                  <div key={s.label} className="mb-3 last:mb-0">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-[#474C54] font-medium">{s.label}</span>
+                      <span className="text-[#767F8C]">{s.count} ({s.pct}%)</span>
+                    </div>
+                    <div className="h-1.5 bg-[#F0F0F0] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${s.pct}%`, background: s.color }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-[#0A65CC] rounded-xl p-5 text-white flex-1">
+                <TrendingUp size={20} className="mb-3 opacity-80" />
+                <p className="text-lg font-bold">78% Response Rate</p>
+                <p className="text-xs opacity-70 mt-1 leading-relaxed">
+                  Your applications are performing above average. Keep it up!
+                </p>
+                <button className="mt-4 text-xs font-semibold bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition-all">
+                  View Tips →
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Applications */}
+          <div className="mt-4 bg-white border border-[#E7E7E7] rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#E7E7E7] flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-[#18191C]">Recent Applications</h2>
+              <button className="text-xs text-[#0A65CC] font-semibold hover:underline flex items-center gap-1">
+                View all <ArrowUpRight size={12} />
+              </button>
+            </div>
+            <div className="divide-y divide-[#F7F7F8]">
+              {recentJobs.map((job) => {
+                const status = STATUS_CONFIG[job.status];
+                return (
+                  <div
+                    key={job.id}
+                    className="px-5 py-3.5 flex items-center gap-4 hover:bg-[#F9FAFB] transition-colors"
+                  >
+                    {/* Logo */}
+                    <div className="w-9 h-9 rounded-lg bg-[#F7F8FA] border border-[#E7E7E7] flex items-center justify-center text-sm font-bold text-[#474C54] flex-shrink-0">
+                      {job.logo}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[#18191C] truncate">{job.title}</p>
+                      <p className="text-xs text-[#767F8C]">
+                        {job.company} · {job.location}
+                      </p>
+                    </div>
+
+                    {/* Status */}
+                    <span
+                      className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${status.className}`}
+                    >
+                      {status.icon}
+                      {status.label}
+                    </span>
+
+                    {/* Date */}
+                    <span className="text-[11px] text-[#A0A7B4] hidden sm:block flex-shrink-0 w-20 text-right">
+                      {job.date}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}
